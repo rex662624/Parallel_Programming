@@ -1,0 +1,16 @@
+	compile: g++  -o Smooth.o Smooth.cpp -lpthread
+	
+	執行:./Smooth.o x   (x為thread數量)	
+	
+這次的作業，是用pthread的方式做。因此在main裡面，首先先建立thread_count
+個thread，然後所有thread(除了main thread)就會去執行funct。我傳進function一個參數
+是用來標示thread id。
+
+main thread建立完thread就會執行join，等所有thread加入，然後存檔模糊化之後的圖。
+
+thread要執行的funct，首先是用在main thread 已經算好的local_size array，存的是每個
+thread要處理多少行的data。用local_size array算出自己要處理的upper和lower，就是上
+下界。 而後就進行1000次的平行化for迴圈。for迴圈裡面是先做一次barrier以同步，而後只
+讓一個thread做swap，因為BMPDATA是global variable，所以一thread swap全部就會swap。
+而後再barrier，因為其他thread要等thread0做完swap才有正確的data。
+for迴圈第一個barrier的用意是，讓所有process做的平滑化次數能同步，避免獲取錯data。
