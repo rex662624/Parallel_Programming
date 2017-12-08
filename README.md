@@ -12,9 +12,11 @@ Homework4 :  Modify hw2_1.Using pthread to smooth picture
 
 # Compile:
 hw1,hw2: mpiicc  -g  -Wall  -o  hw1  hw1.cpp
+
 hw4:     g++ -o hw4 hw4.cpp -lpthread
 
 # Run:
 hw1,hw2: mpiexec -n x ./hw4.out		(x is the number of processor)
+
 hw4: 	   ./ hw4 x		(x is the number of thread)
 
