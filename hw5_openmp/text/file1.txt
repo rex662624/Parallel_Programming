@@ -1,0 +1,12 @@
+Boy , Apple , apple cat cat apple
+boy , apple , apple Cat cat apple
+boy , apple , apple Cat cat apple
+Boy , apple , apple Cat cat Apple
+boy , apple , Apple Cat cat apple
+boy 
+
+total cat : 11 (include this line)
+
+total boy : 7 (include this line)
+
+total apple : 16 (include this line)
