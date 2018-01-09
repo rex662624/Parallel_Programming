@@ -2,6 +2,8 @@
 #include <omp.h>
 #include <stdlib.h>
 #include <time.h>
+#include <fcntl.h>
+#include <dirent.h>
 
 char queue[2048][256];//max = 200 words per line
 int tail = 0 ;//the empty node index array
@@ -10,9 +12,11 @@ int senddone = 0;
 char keyword[256][32];//存keyword 有哪些
 int totalkeyword=0;//共有多少個keyword
 int totalcount[256];//答案
-
+char store[100][100];
 void countOccurrences(char * , char * ,int);
 void sendrecv(char*);
+int getname(char store[100][100],char* );
+int index;
 int main(int argc,char*argv []){
 	
 	 double start = omp_get_wtime();
@@ -44,21 +48,31 @@ int main(int argc,char*argv []){
 	FILE* file2 = fopen(filename, "r"); /* should check the result */
 	char *fileline=malloc(256);
 	int a;
-//	for(a=0;a<6;a++)
-	while(fscanf(file2,"%s",fileline)!=EOF)
+
+	while(fscanf(file2,"%s",fileline)!=EOF){
+	
+	getname(store,fileline);
+	
+	}
+	
+	
+	for(a=0;a<index;a++)
+		
+//	while(fscanf(file2,"%s",fileline)!=EOF)
 	{
 		
 		tail = 0;		
 	 	senddone = 0;
-	//	printf("%s\n",fileline);
+		printf("%s\n",store[a]);
 		#pragma omp parallel num_threads(thread_count)
-		sendrecv(fileline);
+		sendrecv(store[a]);
 
 //		#pragma omp barrier
 //		int i ;
 //	        for(i=0;i<totalkeyword-1;i++)printf("keyword: %10s   count: %7d\n",keyword[i],totalcount[i]);
 
-	}	
+	}
+	printf("\n");
 //	printf("\ncount: ");
 	int i ;
 	for(i=0;i<totalkeyword-1;i++)printf("keyword: %10s   count: %7d\n",keyword[i],totalcount[i]);
@@ -175,3 +189,38 @@ void countOccurrences(char * str, char * toSearch,int index)
 	}
 	return;
 }
+int getname(char store[100][100],char*path)//find file name in directionary
+{
+	DIR *d;
+	struct dirent *dir;
+	char filename[100];
+	sprintf(filename,path);
+	d = opendir(filename);
+	int count=0;
+	if (d) {
+		while ((dir = readdir(d)) != NULL) {
+			char *temp = malloc(200);
+			char *subpath = malloc(200);
+			// concat path/ with 1.txt => path/1.txt
+			if(dir->d_type==4&&dir->d_name[0]!='.') { //sub folder
+				sprintf(subpath,path);
+				strcat(subpath,"/");
+				strcat(subpath,dir->d_name);
+
+				getname(store,subpath);
+			} else {
+				sprintf(temp,path);
+				sprintf(store[index],dir->d_name);
+				strcat(temp,"/");
+				strcat(temp,store[index]);
+				sprintf(store[index++],temp);
+	
+				if(dir->d_name[0]=='.')index--;	
+			}	
+		}
+		closedir(d);
+	} else printf("ERROR");
+	return index;
+}
+
+
