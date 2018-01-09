@@ -12,10 +12,10 @@ int totalkeyword=0;//共有多少個keyword
 int totalcount[256];//答案
 
 void countOccurrences(char * , char * ,int);
-void sendrecv();
+void sendrecv(char*);
 int main(int argc,char*argv []){
 	
-	clock_t start = clock();
+	 double start = omp_get_wtime();
 
 	//get threadnumber
 	int thread_count = strtol(argv[1],NULL,10);
@@ -39,27 +39,44 @@ int main(int argc,char*argv []){
 	printf("\n");*/
 
 	//找出所有keyword之後開始平行化一行一行讀要分析的file
-	#pragma omp parallel num_threads(thread_count)
-	sendrecv();
 	
+	const char *filename = "file.txt";
+	FILE* file2 = fopen(filename, "r"); /* should check the result */
+	char *fileline=malloc(256);
+	int a;
+//	for(a=0;a<6;a++)
+	while(fscanf(file2,"%s",fileline)!=EOF)
+	{
+		
+		tail = 0;		
+	 	senddone = 0;
+	//	printf("%s\n",fileline);
+		#pragma omp parallel num_threads(thread_count)
+		sendrecv(fileline);
+
+//		#pragma omp barrier
+//		int i ;
+//	        for(i=0;i<totalkeyword-1;i++)printf("keyword: %10s   count: %7d\n",keyword[i],totalcount[i]);
+
+	}	
 //	printf("\ncount: ");
 	int i ;
 	for(i=0;i<totalkeyword-1;i++)printf("keyword: %10s   count: %7d\n",keyword[i],totalcount[i]);
 	
-	clock_t end = clock();
-	float seconds = (float)(end - start) / CLOCKS_PER_SEC;
-	printf("The execution time = %lf\n", seconds);
+	
+	double finish = omp_get_wtime();
+	printf("The execution time = %lf\n",finish - start);
 	return 0;
 
 }
 
 
-void sendrecv(){
+void sendrecv(char *name){
 
 	int myrank = omp_get_thread_num();
 	
 	if(myrank==0){//master	
-	const char *filename = "file2.txt";
+	const char *filename = name;
 
 	FILE* file = fopen(filename, "r"); /* should check the result */
 	if (file == NULL)
@@ -67,12 +84,13 @@ void sendrecv(){
 		fputs("Error: file open failure\n", stderr);
 		exit(EXIT_FAILURE);
 	}
+	
 
 	char line[256]; 
+	
 	while (fgets(line, sizeof(line), file))
 	{
-		
-		
+	
 		#pragma omp critical//動用到queue的要用critical section包住
 		{
 			sprintf(queue[tail++],line);
@@ -149,7 +167,7 @@ void countOccurrences(char * str, char * toSearch,int index)
 		{		
 	    		if(str[i + j] == ' ' || str[i + j] == '\t' || str[i + j] == '\n' || str[i + j] == '\0'||str[i + j] == ','||str[i + j] == '.')//後面是接這些東西的才可以+1
 			{	
-				#pragma omp atomic 
+				#pragma omp atomic
 				totalcount[index]++;
 				
 			}
