@@ -10,7 +10,9 @@ Using MPI to implement parallel program
 
 * Homework4 :  Modify hw2_1.Using pthread to smooth picture
 
-* Homework5 : 1.Count sort 2.producer and consumer .All using OpenMp.
+* Homework5 :  1.Count sort 2.producer and consumer .All using OpenMp.
+
+* Homework6 :  using ant algorithm to find shortest path.
 
 # Compile:
 * hw1,hw2: mpiicc  -g  -Wall  -o  hw1  hw1.cpp
@@ -19,11 +21,13 @@ Using MPI to implement parallel program
 
 * hw5:     gcc -g -Wall -fopenmp -o hw5_1 hw5_1.c
 
+* hw6:     mpicc  -g -Wall -openmp -o hw6 hw6.c
 
 # Run:
 * hw1,hw2: mpiexec -n x ./hw4.out		(x is the number of processor)
 
 * hw4: 	   ./ hw4 x		(x is the number of thread)
 
-* hw4:     ./hw5_1 x (x is the number of thread)
+* hw5:     ./hw5_1 x (x is the number of thread)
 
+* hw6:     mpiexec -n 4 ./hw6 10 att48_d.txt (4:number of process 10:thread per process)
