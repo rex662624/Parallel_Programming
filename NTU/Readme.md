@@ -4,3 +4,6 @@
 [judge system](https://judgegirl.csie.org/)
 
 [course Website](https://sites.google.com/view/pp2019-ntu)
+
+
+**Openmp compile:** gcc - fopenmp hello . c -o hello - omp
