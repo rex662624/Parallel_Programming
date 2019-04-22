@@ -72,7 +72,7 @@ int main()
     {
         memset(index_Ban, 0, 800*sizeof(int));
         tail = 0 ;
-        memset(Extendposition, 0, Extendpositionsize*MAXN*sizeof(int));
+        memset(Extendposition, 0, Extendposition_tail*sizeof(int));
         Extendposition_tail=0;
  
         for (int i = 0; i < n; i++)
@@ -115,7 +115,7 @@ int main()
             printf("%d ",for_index[i]);
         printf("\n");
         */
-        #pragma omp parallel for private(position)reduction(+ : numSolution)
+        #pragma omp parallel for private(position)reduction(+ : numSolution) schedule (dynamic, 1)
         for (int i = 0; i < num_for; i++)
         {
             position[0] = for_index[i];
