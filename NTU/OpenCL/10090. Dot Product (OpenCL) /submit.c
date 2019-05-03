@@ -2,33 +2,25 @@
 #include <string.h>
 #include <assert.h>
 #include <CL/cl.h>
+#include <omp.h>
+#include <inttypes.h>
 
-#define MAXGPU 10
+#define MAXGPU 1
 #define MAXK 1024
+#define MAXN 16777216
 int N;
 uint32_t key1, key2;
+int local_work_size = 1024;
 
 cl_context context;
 cl_program program;
 cl_command_queue commandQueue;
 cl_kernel kernel;
-#define arglist 
-
-
-
-int main(int argc, char *argv[])
-{
-
-    while (scanf("%d %" PRIu32 " %" PRIu32, &N, &key1, &key2) == 3) {
-      OpenCLFunction(arglist);
-    }
-    return 0;
-
-}
-
+#define paralist cl_context *context, cl_program *program, cl_command_queue *commandQueue, cl_kernel *kernel
+#define arglist &context, &program, &commandQueue, &kernel
 
 //=========need to modify
-int main(int argc, char *argv[])
+void InitialOpenCLFunction(paralist)
 {
 
   cl_int status;
@@ -36,121 +28,104 @@ int main(int argc, char *argv[])
   cl_uint platform_id_got;
   status = clGetPlatformIDs(1, &platform_id, &platform_id_got);
   //assert(status == CL_SUCCESS && platform_id_got == 1);
-  //printf("%d platform found\n", platform_id_got);
-  
+
   cl_device_id GPU[MAXGPU];
   cl_uint GPU_id_got;
   status = clGetDeviceIDs(platform_id, CL_DEVICE_TYPE_GPU, MAXGPU, GPU, &GPU_id_got);
- // assert(status == CL_SUCCESS);
- // printf("There are %d GPU devices\n", GPU_id_got); 
-
+  // assert(status == CL_SUCCESS);
 
   /* getcontext */
-  context = clCreateContext(NULL, GPU_id_got, GPU, NULL, NULL, &status);
+  *context = clCreateContext(NULL, 1, GPU, NULL, NULL, &status);
   //assert(status == CL_SUCCESS);
   /* commandqueue */
-  commandQueue = clCreateCommandQueue(context, GPU[0], 0, &status);
+  *commandQueue = clCreateCommandQueue(*context, GPU[0], 0, &status);
   //assert(status == CL_SUCCESS);
+
   /* kernelsource */
   //readinkernelfile
-  char fileName[128];
-  scanf("%s", fileName);
- // assert(scanf("%s", fileName) == 1);
-  FILE *kernelfp = fopen(fileName, "r");
+  // assert(scanf("%s", fileName) == 1);
+  FILE *kernelfp = fopen("vecdot.cl", "r");
   //assert(kernelfp != NULL);
   char kernelBuffer[MAXK];
   const char *constKernelSource = kernelBuffer;
   size_t kernelLength = fread(kernelBuffer, 1, MAXK, kernelfp);
   //printf("The size of kernel source is %zu\n", kernelLength);
-  program = clCreateProgramWithSource(context, 1, &constKernelSource, &kernelLength, &status);
-  
+  *program = clCreateProgramWithSource(*context, 1, &constKernelSource, &kernelLength, &status);
+
   //assert(status == CL_SUCCESS);
   /* buildprogram */
-  status = clBuildProgram(program, GPU_id_got, GPU, NULL, NULL, NULL);
-  if(status != CL_SUCCESS){
-        char errorMessage[2048];
-        status = clGetProgramBuildInfo(program, GPU[0],CL_PROGRAM_BUILD_LOG, sizeof(errorMessage), errorMessage,NULL);
-       // assert(status == CL_SUCCESS);
-        printf("%s", errorMessage);
+  status = clBuildProgram(*program, 1, GPU, NULL, NULL, NULL);
+  if (status != CL_SUCCESS)
+  {
+    char errorMessage[2048];
+    status = clGetProgramBuildInfo(*program, GPU[0], CL_PROGRAM_BUILD_LOG, sizeof(errorMessage), errorMessage, NULL);
+    // assert(status == CL_SUCCESS);
+    printf("%s", errorMessage);
   }
-  
 
   /* createkernel */
-  kernel = clCreateKernel(program, "add", &status);
+  *kernel = clCreateKernel(*program, "DotProduct", &status);
   assert(status == CL_SUCCESS);
-  printf("Build kernel completes\n");
-
-
+  //printf("Build kernel completes\n");
 
   /* vector */
-  int N;
-  uint32_t key1, key2;
-  cl_uint* A = (cl_uint*)malloc(N * sizeof(cl_uint));
-  cl_uint* B = (cl_uint*)malloc(N * sizeof(cl_uint));
-  cl_uint* C = (cl_uint*)malloc(N * sizeof(cl_uint));
-  assert(A != NULL && B != NULL && C != NULL);
-
-  for (int i = 0; i < N; i++) {
-    A[i] = i;
-    B[i] = N - i;
-  }
-
+  uint32_t *out = (uint32_t *)malloc(MAXN * sizeof(uint32_t));
+  assert(out != NULL);
 
   /* createbuffer */
-  cl_mem bufferA = 
-    clCreateBuffer(context, 
-		   CL_MEM_READ_ONLY | CL_MEM_COPY_HOST_PTR,
-		   N * sizeof(cl_uint), A, &status);
+  cl_mem bufferOut = clCreateBuffer(*context, CL_MEM_WRITE_ONLY | CL_MEM_USE_HOST_PTR, MAXN * sizeof(uint32_t), out, &status);
   assert(status == CL_SUCCESS);
-  cl_mem bufferB = 
-    clCreateBuffer(context, 
-		   CL_MEM_READ_ONLY | CL_MEM_COPY_HOST_PTR,
-		   N * sizeof(cl_uint), B, &status);
-  assert(status == CL_SUCCESS);
-  cl_mem bufferC = 
-    clCreateBuffer(context, 
-		   CL_MEM_WRITE_ONLY | CL_MEM_USE_HOST_PTR,
-		   N * sizeof(cl_uint), C, &status);
-  assert(status == CL_SUCCESS);
-  printf("Build buffers completes\n");
-  /* setarg */
-  status = clSetKernelArg(kernel, 0, sizeof(cl_mem), 
-			  (void*)&bufferA);
-  assert(status == CL_SUCCESS);
-  status = clSetKernelArg(kernel, 1, sizeof(cl_mem), 
-			  (void*)&bufferB);
-  assert(status == CL_SUCCESS);
-  status = clSetKernelArg(kernel, 2, sizeof(cl_mem), 
-			  (void*)&bufferC);
-  assert(status == CL_SUCCESS);
-  printf("Set kernel arguments completes\n");
-  /* setshape */
-  size_t globalThreads[] = {(size_t)N};
-  size_t localThreads[] = {1};
-  status = 
-    clEnqueueNDRangeKernel(commandQueue, kernel, 1, NULL, 
-			   globalThreads, localThreads, 
-			   0, NULL, NULL);
-  assert(status == CL_SUCCESS);
-  printf("Specify the shape of the domain completes.\n");
-  /* getcvector */
-  clEnqueueReadBuffer(commandQueue, bufferC, CL_TRUE, 
-		      0, N * sizeof(cl_uint), C, 
-		      0, NULL, NULL);
-  printf("Kernel execution completes.\n");
-  /* checkandfree */
-  for (int i = 0; i < N; i++)
-    assert(A[i] + B[i] == C[i]);
+  //printf("Build buffers completes\n");
 
-  free(A);			/* host memory */
-  free(B);
-  free(C);
-  clReleaseContext(context);	/* context etcmake */
-  clReleaseCommandQueue(commandQueue);
-  clReleaseProgram(program);
-  clReleaseKernel(kernel);
-  clReleaseMemObject(bufferA);	/* buffers */
-  clReleaseMemObject(bufferB);
-  clReleaseMemObject(bufferC);
+  while (scanf("%d %" PRIu32 " %" PRIu32, &N, &key1, &key2) == 3)
+  {
+    /* setarg */
+    status = clSetKernelArg(*kernel, 0, sizeof(cl_uint), (void *)&key1);
+    assert(status == CL_SUCCESS);
+    status = clSetKernelArg(*kernel, 1, sizeof(cl_uint), (void *)&key2);
+    assert(status == CL_SUCCESS);
+    status = clSetKernelArg(*kernel, 2, sizeof(cl_mem), (void *)&bufferOut);
+    assert(status == CL_SUCCESS);
+    status = clSetKernelArg(*kernel, 3, sizeof(int), (void *)&local_work_size);
+    assert(status == CL_SUCCESS);
+    status = clSetKernelArg(*kernel, 4, sizeof(int), (void *)&N);
+    assert(status == CL_SUCCESS);
+    //printf("Set kernel arguments completes\n");
+
+    /* setshape */
+    size_t num_of_work_items = (N-1) / local_work_size + 1;//取ceiling，因為是需要處理的group數目
+
+    //padding到256的倍數,保持num_of_work_items是localThreads的整數倍（為了num_of_work_items讓可以整除localThreads）
+    num_of_work_items = (num_of_work_items % 256 == 0) ? num_of_work_items : ((num_of_work_items / 256) + 1) * 256;
+
+    size_t globalThreads[] = {(size_t)num_of_work_items};//代表work-item總數（然後一個work-item裡面有local_work_size個數字要計算）
+    size_t localThreads[] = {256};//代表分成256個work_items組成一個work group
+    status = clEnqueueNDRangeKernel(*commandQueue, *kernel, 1, NULL, globalThreads, localThreads, 0, NULL, NULL);
+    assert(status == CL_SUCCESS);
+    //printf("Specify the shape of the domain completes.\n");
+
+    /* getcvector */
+    clEnqueueReadBuffer(*commandQueue, bufferOut, CL_TRUE, 0, num_of_work_items * sizeof(cl_uint), out, 0, NULL, NULL);
+    //printf("Kernel execution completes.\n");
+    
+    uint32_t sum = 0 ;
+    for (int i = 0; i < num_of_work_items; i++)
+      sum += out[i];
+    
+    printf("%"PRIu32"\n", sum);
+
+  }
+
+  free(out);
+  clReleaseContext(*context);
+  clReleaseCommandQueue(*commandQueue);
+  clReleaseProgram(*program);
+  clReleaseKernel(*kernel);
+  clReleaseMemObject(bufferOut);
+}
+
+int main(int argc, char *argv[])
+{
+  InitialOpenCLFunction(arglist);
   return 0;
 }
